@@ -114,7 +114,16 @@ app.post('/api/places/:id/report', async (req, res) => {
 /* ---------- API: курсы / слёты / клубы Шичко ---------- */
 // Используем один набор роутов на все три раздела: /api/courses, /api/meetups, /api/clubs
 
-app.get('/api/:section(courses|meetups|clubs)', async (req, res) => {
+// Проверяем, что раздел допустимый (Express 5 больше не поддерживает
+// regex-группы вида ':section(a|b|c)' в пути, поэтому проверяем в middleware)
+function validSection(req, res, next) {
+  if (!CONTENT_TYPES[req.params.section]) {
+    return res.status(404).json({ error: 'Раздел не найден' });
+  }
+  next();
+}
+
+app.get('/api/:section', validSection, async (req, res) => {
   try {
     const type = CONTENT_TYPES[req.params.section];
     // Пока без модерации — отдаём всё, кроме явно отклонённого
@@ -125,7 +134,7 @@ app.get('/api/:section(courses|meetups|clubs)', async (req, res) => {
   }
 });
 
-app.get('/api/:section(courses|meetups|clubs)/:id', async (req, res) => {
+app.get('/api/:section/:id', validSection, async (req, res) => {
   try {
     const item = await ContentItem.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'Не найдено' });
@@ -135,7 +144,7 @@ app.get('/api/:section(courses|meetups|clubs)/:id', async (req, res) => {
   }
 });
 
-app.post('/api/:section(courses|meetups|clubs)', async (req, res) => {
+app.post('/api/:section', validSection, async (req, res) => {
   try {
     const type = CONTENT_TYPES[req.params.section];
     const { title, city, address, dateText, description, contactName, phone, website, image } = req.body;
@@ -161,7 +170,7 @@ app.post('/api/:section(courses|meetups|clubs)', async (req, res) => {
   }
 });
 
-app.delete('/api/:section(courses|meetups|clubs)/:id', async (req, res) => {
+app.delete('/api/:section/:id', validSection, async (req, res) => {
   try {
     const item = await ContentItem.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: 'Не найдено' });
@@ -172,7 +181,7 @@ app.delete('/api/:section(courses|meetups|clubs)/:id', async (req, res) => {
 });
 
 // PATCH статуса — уже готово на будущее, когда включим модерацию
-app.patch('/api/:section(courses|meetups|clubs)/:id/status', async (req, res) => {
+app.patch('/api/:section/:id/status', validSection, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['pending', 'approved', 'rejected'].includes(status)) {
